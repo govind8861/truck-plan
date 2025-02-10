@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Route Planner</title>
+    <script>
+        function addCoordinateField() {
+            const container = document.getElementById("coordinatesContainer");
+            const div = document.createElement("div");
+            div.className = "coordinate-pair";
+            div.innerHTML = `
+                <input type="text" placeholder="Latitude" class="lat" required style="width: 400px; height: 40px; ">
+                <input type="text" placeholder="Longitude" class="lon" required style="width: 400px; height: 40px; ">
+                <button type="button" onclick="removeCoordinateField(this)" style="width: auto; height: 40px; margin-left: 10px" >❌</button>
+                <br>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeCoordinateField(button) {
+            button.parentElement.remove();
+        }
+
+        async function planRoute(event) {
+            event.preventDefault();
+
+            const speed = document.getElementById("speed").value.trim();
+            const coords = [];
+
+            document.querySelectorAll(".coordinate-pair").forEach(pair => {
+                let lat = pair.querySelector(".lat").value.trim();
+                let lon = pair.querySelector(".lon").value.trim();
+
+                if (lat && lon) {
+                    // Remove invalid characters and extra spaces
+                    lat = lat.replace(/[^0-9.-]/g, "");
+                    lon = lon.replace(/[^0-9.-]/g, "");
+                    coords.push(`${lon},${lat}`);  // Format: lon,lat
+                }
+            });
+
+            if (coords.length < 2) {
+                alert("Please enter at least two valid locations.");
+                return;
+            }
+
+            const formattedCoords = coords.join(";");  // Use ";" separator for OSRM
+            const url = `/plan-route?coordinates=${encodeURIComponent(formattedCoords)}&speed=${speed}`;
+
+            try {
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                const blob = await response.blob();
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "output.xlsx";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                document.getElementById("output").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</head>
+<body >
+    <h1>Truck Route Planner</h1>
+    <form onsubmit="planRoute(event)">
+        <div id="coordinatesContainer">
+            <div class="coordinate-pair">
+                <input type="text" placeholder="Latitude" class="lat" required style="width: 400px; height: 40px; ">
+                <input type="text" placeholder="Longitude" class="lon" required style="width: 400px; height: 40px; ">
+                <button type="button" onclick="removeCoordinateField(this)" style="width: auto; height: 40px; margin-left: 10px" >❌</button>
+                <br>
+            </div>
+        </div>
+        <button type="button" onclick="addCoordinateField()" style="width: auto; height: 40px;margin-top: 12px ">➕ Add Location</button>
+        <br><br>
+
+        <label for="speed">Speed (mph):</label>
+        <input type="number" id="speed" value="60" required><br><br>
+
+        <button type="submit" style="background: linear-gradient(to right, #0f2f2f, #2f3f4f, #2c5364) ;color: #fff;font-size: 1.1rem; width: auto; height: 40px;" >Plan Route</button>
+    </form>
+
+    <div id="output"></div>
+</body>
+</html>
