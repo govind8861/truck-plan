@@ -22,9 +22,6 @@ const logger = winston.createLogger({
 
 // Serve static files
 app.use(express.static(path.join(__dirname)));
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
-});
 
 // Load speed limits data
 const speedLimits = JSON.parse(fs.readFileSync(path.join(__dirname, "speed_limits.json"), "utf-8"));
@@ -90,10 +87,9 @@ async function getSpeedLimit(lat, lon) {
 async function generateStops(route, userStops) {
     const stops = [];
     let milesTraveled = 0;
-    let currentSpeed = 60; // Default speed
-    let lastCheckedIndex = 0;
-    
+    let currentSpeed = 65; // Default speed
     let userIndex = 0;
+    
     for (let i = 1; i < route.length; i++) {
         const [lon1, lat1] = route[i - 1];
         const [lon2, lat2] = route[i];
@@ -102,7 +98,7 @@ async function generateStops(route, userStops) {
         milesTraveled += distance;
 
         if (milesTraveled >= currentSpeed) {
-            currentSpeed = await getSpeedLimit(lat1, lon1); // Update speed only after 1 hour of travel
+            currentSpeed = await getSpeedLimit(lat1, lon1); // Update speed after 1 hour of travel
             stops.push({
                 lat: lat1.toFixed(2),
                 lon: lon1.toFixed(2),
@@ -133,8 +129,8 @@ async function generateStops(route, userStops) {
     return stops;
 }
 
-// Function to create an Excel file
-async function createExcel(stops, outputFile) {
+// Function to create an Excel file dynamically
+async function createExcel(stops) {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Route Stops");
 
@@ -142,6 +138,7 @@ async function createExcel(stops, outputFile) {
         { header: "Duration (HH:MM)", key: "duration", width: 15 },
         { header: "Latitude", key: "lat", width: 15 },
         { header: "Longitude", key: "lon", width: 15 },
+        { header: "Location", key: "location", width: 20 },
         { header: "Fuel Available", key: "fuel", width: 15 },
     ];
 
@@ -149,7 +146,10 @@ async function createExcel(stops, outputFile) {
         sheet.addRow(stop);
     }
 
+    const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, "");
+    const outputFile = path.join(__dirname, `route_stops_${timestamp}.xlsx`);
     await workbook.xlsx.writeFile(outputFile);
+    
     return outputFile;
 }
 
@@ -171,23 +171,21 @@ app.get("/plan-route", async (req, res) => {
         return res.status(400).send("Need at least two locations.");
     }
 
-    const allStops = [];
-
     try {
         const route = await getRoute(coordList.map(coord => coord.join(",")));
         const stops = await generateStops(route, coordList);
-        allStops.push(...stops);
 
-        const timestamp = Date.now();
-        const outputFile = path.join(__dirname, `output_${timestamp}.xlsx`);
+        const outputFile = await createExcel(stops);
         
-        await createExcel(allStops, outputFile);
-        
-        res.download(outputFile);
-        fs.unlink(outputFile, (unlinkErr) => {
-            if (unlinkErr) console.error("Error deleting file:", unlinkErr);
+        res.download(outputFile, (err) => {
+            if (err) {
+                console.error("Error sending file:", err);
+            } else {
+                fs.unlink(outputFile, (err) => {
+                    if (err) console.error("Error deleting file:", err);
+                });
+            }
         });
-        
     } catch (error) {
         logger.error("Error planning route:", error);
         res.status(500).send("An error occurred while planning the route.");
