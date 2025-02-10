@@ -178,10 +178,16 @@ app.get("/plan-route", async (req, res) => {
         const stops = await generateStops(route, coordList);
         allStops.push(...stops);
 
-        const outputFile = path.join(__dirname, "output.xlsx");
+        const timestamp = Date.now();
+        const outputFile = path.join(__dirname, `output_${timestamp}.xlsx`);
+        
         await createExcel(allStops, outputFile);
         
         res.download(outputFile);
+        fs.unlink(outputFile, (unlinkErr) => {
+            if (unlinkErr) console.error("Error deleting file:", unlinkErr);
+        });
+        
     } catch (error) {
         logger.error("Error planning route:", error);
         res.status(500).send("An error occurred while planning the route.");
