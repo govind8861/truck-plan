@@ -80,14 +80,14 @@ async function getStateFromCoordinates(lat, lon) {
 
 async function getSpeedLimit(lat, lon) {
     const state = await getStateFromCoordinates(lat, lon);
-    return speedLimits[state] || 65; // Default speed limit if state not found
+    return speedLimits[state] || 60; // Default speed limit if state not found
 }
 
 // Function to generate stops based on FMCSA rules and include user-provided stops
 async function generateStops(route, userStops) {
     const stops = [];
     let milesTraveled = 0;
-    let currentSpeed = 65; // Default speed
+    let currentSpeed = 60;// Default speed
     let userIndex = 0;
     
     for (let i = 1; i < route.length; i++) {
