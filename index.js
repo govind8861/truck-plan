@@ -47,6 +47,19 @@ async function getRoute(locations) {
         throw new Error("Could not get route data.");
     }
 }
+function truncateCoordinate(value) {
+    if (!isFinite(value)) return "Invalid input"; 
+
+    let str = value.toString();
+    let index = str.indexOf('.');
+
+    if (index === -1) return str + ".00"; // Ensure two decimal places for whole numbers
+
+    let truncated = str.slice(0, index + 3); // Cut off after two decimal places
+
+    return truncated.length === index + 2 ? truncated + "0" : truncated; // Ensure two decimals
+}
+
 
 // Function to calculate Haversine distance (accurate distance between two points)
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -64,6 +77,7 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in miles
 }
+
 
 // Function to get speed limit based on state
 async function getStateFromCoordinates(lat, lon) {
@@ -99,9 +113,10 @@ async function generateStops(route, userStops) {
 
         if (milesTraveled >= currentSpeed) {
             currentSpeed = await getSpeedLimit(lat1, lon1); // Update speed after 1 hour of travel
+            console.log("Before Truncation:", lat1, lon1);
             stops.push({
-                lat: lat1.toFixed(2),
-                lon: lon1.toFixed(2),
+                lat: truncateCoordinate(lat1),
+                lon: truncateCoordinate(lon1),
                 duration: "1:00",
                 location: "Highway Stop",
                 fuel: "Not Available",
@@ -109,12 +124,13 @@ async function generateStops(route, userStops) {
             milesTraveled = 0;
         }
 
-        while (userIndex < userStops.length) {
+        while (userIndex < userStops.length) {  
             const [userLon, userLat] = userStops[userIndex];
+        
             if (Math.abs(userLat - lat1) < 0.05 && Math.abs(userLon - lon1) < 0.05) {
                 stops.push({
-                    lat: userLat.toFixed(2),
-                    lon: userLon.toFixed(2),
+                    lat: truncateCoordinate(userLat),
+                    lon: truncateCoordinate(userLon),
                     duration: "User Stop",
                     location: "User Provided Stop",
                     fuel: "Available",
